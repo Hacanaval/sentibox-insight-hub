@@ -16,7 +16,7 @@ export interface SentimentResponse {
 }
 
 export interface ProductReview {
-  id?: string;
+  id: string;  // Changed from optional to required
   product: string;
   review: string;
   vaderScore?: number;

@@ -12,6 +12,12 @@ interface CSVUploaderProps {
   setIsLoading: (loading: boolean) => void;
 }
 
+// Define a temporary type for parsing CSV data before assigning IDs
+interface TempReview {
+  product: string;
+  review: string;
+}
+
 const CSVUploader = ({ onDataProcessed, isLoading, setIsLoading }: CSVUploaderProps) => {
   const [file, setFile] = useState<File | null>(null);
   const [isAPIConnected, setIsAPIConnected] = useState<boolean | null>(null);
