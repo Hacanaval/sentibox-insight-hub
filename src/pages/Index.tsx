@@ -14,13 +14,30 @@ const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleDataProcessed = (processedReviews: ProductReview[]) => {
-    setReviews(processedReviews);
+    // Verificamos que tengamos reseñas válidas (con texto real, no solo IDs)
+    const validReviews = processedReviews.filter(
+      r => r.review && r.review.length > 5 && !/^\d+$/.test(r.review)
+    );
+    
+    if (validReviews.length === 0) {
+      toast.error("No se encontraron reseñas válidas para mostrar. Verifica que el archivo CSV contenga textos de reseñas reales.");
+      return;
+    }
+    
+    setReviews(validReviews);
     
     // Mostrar estadísticas rápidas del análisis
-    const totalReviews = processedReviews.length;
-    const vaderPositive = processedReviews.filter(r => r.vaderSentiment === "Positivo").length;
-    const vaderNeutral = processedReviews.filter(r => r.vaderSentiment === "Neutral").length;
-    const vaderNegative = processedReviews.filter(r => r.vaderSentiment === "Negativo").length;
+    const totalReviews = validReviews.length;
+    const vaderPositive = validReviews.filter(r => r.vaderSentiment === "Positivo").length;
+    const vaderNeutral = validReviews.filter(r => r.vaderSentiment === "Neutral").length;
+    const vaderNegative = validReviews.filter(r => r.vaderSentiment === "Negativo").length;
+    
+    console.log("Estadísticas de sentimiento:", {
+      total: totalReviews,
+      positivo: vaderPositive,
+      neutral: vaderNeutral,
+      negativo: vaderNegative
+    });
     
     toast.success(
       <div className="space-y-1">

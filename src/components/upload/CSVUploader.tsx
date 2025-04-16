@@ -52,62 +52,73 @@ const CSVUploader = ({ onDataProcessed, isLoading, setIsLoading }: CSVUploaderPr
     const lines = text.split("\n");
     const headers = lines[0].split(",");
     
-    // Verificamos si el archivo contiene columnas específicas de Amazon
-    const reviewContentIndex = headers.findIndex(h => h.toLowerCase().includes("review_content"));
-    const asinIndex = headers.findIndex(h => h.toLowerCase().includes("asin") || h.toLowerCase().includes("product_id"));
+    console.log("Encabezados detectados:", headers);
+
+    // Buscamos específicamente la columna de contenido de reseñas
+    const reviewContentIndex = headers.findIndex(h => 
+      h.trim().toLowerCase() === 'review_content' || 
+      h.trim().toLowerCase() === 'review' ||
+      h.trim().toLowerCase() === 'reseña' || 
+      h.trim().toLowerCase() === 'comentario' ||
+      h.trim().toLowerCase() === 'text' ||
+      h.trim().toLowerCase() === 'texto'
+    );
     
-    if (reviewContentIndex !== -1 && asinIndex !== -1) {
-      // Formato específico de Amazon
-      console.log("Detectado formato Amazon:", headers);
-      return lines
-        .slice(1) // Omitimos las cabeceras
-        .filter(line => line.trim() !== "")
-        .map((line, index) => {
-          const values = line.split(",");
-          return {
-            id: `review-${index}`,
-            product: values[asinIndex].trim(),
-            review: values[reviewContentIndex].trim()
-          };
-        });
-    }
-    
-    // Formato genérico (buscamos product/producto y review/reseña)
+    // Buscamos la columna de producto o ASIN (ID de producto en Amazon)
     const productIndex = headers.findIndex(h => 
-      h.toLowerCase().includes("product") || 
-      h.toLowerCase().includes("producto") ||
-      h.toLowerCase().includes("asin")
+      h.trim().toLowerCase() === 'product_id' || 
+      h.trim().toLowerCase() === 'product' || 
+      h.trim().toLowerCase() === 'producto' ||
+      h.trim().toLowerCase() === 'asin'
     );
     
-    const reviewIndex = headers.findIndex(h => 
-      h.toLowerCase().includes("review") || 
-      h.toLowerCase().includes("reseña") ||
-      h.toLowerCase().includes("comentario") ||
-      h.toLowerCase().includes("text")
-    );
-    
-    if (productIndex === -1 || reviewIndex === -1) {
-      throw new Error("El CSV debe contener columnas identificables como 'product/producto' y 'review/reseña'");
+    if (reviewContentIndex === -1) {
+      throw new Error("No se encontró una columna de reseñas válida en el CSV. Debe contener una columna llamada 'review_content', 'review', 'reseña', 'comentario', 'text' o similar.");
     }
     
-    console.log(`Formato genérico: product=${headers[productIndex]}, review=${headers[reviewIndex]}`);
+    const productColumnName = productIndex !== -1 ? headers[productIndex].trim() : 'Unknown Product';
+    const reviewColumnName = headers[reviewContentIndex].trim();
+    
+    console.log(`Usando columnas: Producto=${productColumnName}, Reseña=${reviewColumnName}`);
     
     return lines
       .slice(1) // Omitimos las cabeceras
       .filter(line => line.trim() !== "")
       .map((line, index) => {
         const values = line.split(",");
-        if (values.length <= Math.max(productIndex, reviewIndex)) {
+        
+        // Nos aseguramos de que la línea tenga suficientes columnas
+        if (values.length <= Math.max(reviewContentIndex, productIndex !== -1 ? productIndex : 0)) {
           console.warn("Línea con formato incorrecto:", line);
           return null;
         }
+        
+        // Obtenemos el texto de la reseña y lo limpiamos
+        const reviewText = values[reviewContentIndex]?.trim() || "";
+        
+        // Verificamos que la reseña tenga contenido significativo
+        if (!reviewText || reviewText.length < 5 || /^\d+$/.test(reviewText)) {
+          console.warn("Reseña inválida detectada:", reviewText);
+          return null;
+        }
+        
+        // Determinamos el producto (nombre o ID)
+        const productName = productIndex !== -1 
+          ? values[productIndex]?.trim() || `Producto ${index + 1}`
+          : `Producto ${index + 1}`;
+        
         return {
           id: `review-${index}`,
-          product: values[productIndex]?.trim() || `Producto ${index}`,
-          review: values[reviewIndex]?.trim() || ""
+          product: productName,
+          review: reviewText
         };
       })
-      .filter((item): item is ProductReview => item !== null && item.review !== "");
+      .filter((item): item is ProductReview => 
+        item !== null && 
+        item.review !== "" && 
+        item.review.length > 5 &&
+        !/^\d+$/.test(item.review)
+      );
   };
 
   const handleUpload = async () => {
@@ -139,7 +150,7 @@ const CSVUploader = ({ onDataProcessed, isLoading, setIsLoading }: CSVUploaderPr
       const reviews = parseCSV(text);
       
       if (reviews.length === 0) {
-        toast.error("No se encontraron reseñas válidas en el archivo");
+        toast.error("No se encontraron reseñas válidas en el archivo. Verifica que el CSV contenga una columna con textos de reseñas (no solo IDs o números).");
         setIsLoading(false);
         return;
       }
@@ -165,7 +176,7 @@ const CSVUploader = ({ onDataProcessed, isLoading, setIsLoading }: CSVUploaderPr
       <h2 className="text-xl font-semibold mb-4">Cargar archivo CSV</h2>
       <p className="text-gray-600 mb-4">
         Sube un archivo CSV con reseñas de productos. El archivo debe contener al menos
-        las columnas "product/asin" y "review/review_content".
+        una columna con textos de reseñas como 'review_content', 'review', 'texto', etc.
       </p>
       
       {isAPIConnected === false && (

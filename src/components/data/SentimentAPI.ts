@@ -98,9 +98,23 @@ export async function processCSV(reviews: ProductReview[]): Promise<ProductRevie
     throw new Error('No se pudo conectar con la API de análisis. Verifica que el servidor Flask esté en ejecución.');
   }
 
+  // Filtrar reseñas para asegurar que tienen texto válido (no solo IDs o números)
+  const validReviews = reviews.filter(review => {
+    // Comprobar que la reseña tenga un texto significativo (más de 5 caracteres y no solo números)
+    return review.review && 
+           review.review.length > 5 && 
+           !/^\d+$/.test(review.review);
+  });
+
+  if (validReviews.length === 0) {
+    throw new Error('No se encontraron reseñas válidas para analizar. Verifica que el archivo CSV tenga una columna con texto de reseñas.');
+  }
+
+  console.log(`Procesando ${validReviews.length} reseñas válidas de ${reviews.length} totales`);
+
   // Procesamos cada reseña con ambos modelos
   const processedReviews = await Promise.all(
-    reviews.map(async (review) => {
+    validReviews.map(async (review) => {
       try {
         // Análisis con VADER
         const vaderResponse = await analyzeSentiment(review.review, 'vader');
