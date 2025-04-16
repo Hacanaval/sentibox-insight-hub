@@ -3,6 +3,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { checkAPIConnection, API_URL } from "../data/SentimentAPI";
+import { WifiOff, Wifi, Loader2 } from "lucide-react";
 
 type PageLayoutProps = {
   children: ReactNode;
@@ -52,15 +53,13 @@ const PageLayout = ({ children, title, description }: PageLayoutProps) => {
                     : 'bg-gray-50 text-gray-700 border-gray-200'
                 }`}
               >
-                <span
-                  className={`h-2 w-2 rounded-full ${
-                    apiStatus === 'connected'
-                      ? 'bg-green-500'
-                      : apiStatus === 'disconnected'
-                      ? 'bg-red-500'
-                      : 'bg-gray-400'
-                  }`}
-                />
+                {apiStatus === 'connected' ? (
+                  <Wifi size={16} className="text-green-500" />
+                ) : apiStatus === 'disconnected' ? (
+                  <WifiOff size={16} className="text-red-500" />
+                ) : (
+                  <Loader2 size={16} className="text-gray-400 animate-spin" />
+                )}
                 {apiStatus === 'connected'
                   ? 'API Conectada'
                   : apiStatus === 'disconnected'

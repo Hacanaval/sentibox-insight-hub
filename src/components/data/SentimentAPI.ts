@@ -36,7 +36,7 @@ export interface ProductSummary {
 
 // Configuración de la API
 // Puedes cambiar esta URL para que apunte a tu servidor Flask, ya sea local o en la nube
-export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+export const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000';
 
 // Función para verificar la conexión a la API
 export async function checkAPIConnection(): Promise<boolean> {
