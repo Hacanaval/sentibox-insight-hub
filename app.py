@@ -25,19 +25,37 @@ def sentiment():
     if not text:
         return jsonify({'error': 'Texto no recibido'}), 400
 
+    # Análisis según el modelo seleccionado
     if model == 'vader':
-        score = vader_analyzer.polarity_scores(text)['compound']
+        # Para VADER utilizamos el analizador completo para obtener más detalles
+        scores = vader_analyzer.polarity_scores(text)
+        score = scores['compound']
+        
+        # Añadimos los detalles del análisis en la respuesta
+        print(f"VADER scores: {scores}")
+        
     elif model == 'textblob':
-        score = TextBlob(text).sentiment.polarity
+        # Para TextBlob obtenemos tanto polaridad como subjetividad
+        analysis = TextBlob(text)
+        score = analysis.sentiment.polarity
+        
+        # Añadimos los detalles del análisis en la respuesta
+        print(f"TextBlob polarity: {score}, subjectivity: {analysis.sentiment.subjectivity}")
+        
     else:
         return jsonify({'error': 'Modelo no válido'}), 400
 
+    # Determinamos la etiqueta de sentimiento
+    # Ajustamos los umbrales para obtener más variedad en las etiquetas
     if score > 0.05:
         label = 'Positivo'
     elif score < -0.05:
         label = 'Negativo'
     else:
         label = 'Neutral'
+
+    # Imprimimos para depuración
+    print(f"Texto: '{text}', Modelo: {model}, Score: {score}, Sentimiento: {label}")
 
     return jsonify({
         'texto': text,

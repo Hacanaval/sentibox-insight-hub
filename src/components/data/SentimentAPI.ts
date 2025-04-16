@@ -1,3 +1,4 @@
+
 // Tipos para interactuar con la API
 export type SentimentModel = 'vader' | 'textblob';
 export type SentimentLabel = 'Positivo' | 'Negativo' | 'Neutral';
@@ -40,6 +41,7 @@ export const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000';
 // Función para verificar la conexión a la API
 export async function checkAPIConnection(): Promise<boolean> {
   try {
+    console.log(`Intentando conectar a la API en: ${API_URL}`);
     const response = await fetch(`${API_URL}/`, { 
       method: 'GET',
       headers: {
@@ -48,7 +50,14 @@ export async function checkAPIConnection(): Promise<boolean> {
       // Agregamos un timeout para evitar esperas largas
       signal: AbortSignal.timeout(5000)
     });
-    return response.ok;
+    
+    if (response.ok) {
+      console.log('Conexión a la API exitosa');
+      return true;
+    } else {
+      console.error('La API respondió con error:', response.status, response.statusText);
+      return false;
+    }
   } catch (error) {
     console.error('Error al verificar la conexión con la API:', error);
     return false;
@@ -58,6 +67,7 @@ export async function checkAPIConnection(): Promise<boolean> {
 // Funciones para interactuar con la API
 export async function analyzeSentiment(text: string, model: SentimentModel): Promise<SentimentResponse> {
   try {
+    console.log(`Analizando texto con modelo ${model}:`, text);
     const response = await fetch(`${API_URL}/sentiment`, {
       method: 'POST',
       headers: {
@@ -72,7 +82,9 @@ export async function analyzeSentiment(text: string, model: SentimentModel): Pro
       throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
     }
     
-    return await response.json();
+    const data = await response.json();
+    console.log('Resultado del análisis:', data);
+    return data;
   } catch (error) {
     console.error('Error en la solicitud de análisis:', error);
     throw error;
@@ -118,11 +130,11 @@ export function getSentimentColor(sentiment: SentimentLabel | undefined): string
   
   switch (sentiment) {
     case 'Positivo':
-      return 'bg-sentiment-positive';
+      return 'bg-green-500 text-white hover:bg-green-600';
     case 'Neutral':
-      return 'bg-sentiment-neutral';
+      return 'bg-amber-400 text-white hover:bg-amber-500';
     case 'Negativo':
-      return 'bg-sentiment-negative';
+      return 'bg-red-500 text-white hover:bg-red-600';
     default:
       return 'bg-gray-200';
   }

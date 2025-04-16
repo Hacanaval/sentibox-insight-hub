@@ -1,7 +1,10 @@
 
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ProductReview, ProductSummary, SentimentModel } from "../data/SentimentAPI";
+import { ProductReview, ProductSummary, SentimentLabel, SentimentModel, getSentimentColor } from "../data/SentimentAPI";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface ProductStatsProps {
   reviews: ProductReview[];
@@ -9,6 +12,9 @@ interface ProductStatsProps {
 }
 
 const ProductStats = ({ reviews, selectedModel }: ProductStatsProps) => {
+  const [filterText, setFilterText] = useState("");
+  const [sentimentFilter, setSentimentFilter] = useState<SentimentLabel | "all">("all");
+
   // Si no hay reseñas, mostramos un mensaje
   if (reviews.length === 0) {
     return (
@@ -74,18 +80,26 @@ const ProductStats = ({ reviews, selectedModel }: ProductStatsProps) => {
   productStats.sort((a, b) => b.reviewCount - a.reviewCount);
 
   // Determinamos el estado de sentimiento para un puntaje
-  const getSentimentStatus = (score: number) => {
+  const getSentimentStatus = (score: number): SentimentLabel => {
     if (score > 0.05) return "Positivo";
     if (score < -0.05) return "Negativo";
     return "Neutral";
   };
 
-  // Determinamos el color según el sentimiento
-  const getSentimentColor = (score: number) => {
-    if (score > 0.05) return "bg-sentiment-positive hover:bg-sentiment-positive/80";
-    if (score < -0.05) return "bg-sentiment-negative hover:bg-sentiment-negative/80";
-    return "bg-sentiment-neutral hover:bg-sentiment-neutral/80";
-  };
+  // Filtramos los productos según el texto de búsqueda y el filtro de sentimiento
+  const filteredProductStats = productStats.filter((stats) => {
+    // Filtro por texto
+    const matchesText = stats.product.toLowerCase().includes(filterText.toLowerCase());
+    
+    // Filtro por sentimiento
+    if (sentimentFilter === "all") {
+      return matchesText;
+    }
+    
+    const avgScore = selectedModel === "vader" ? stats.vaderAvgScore : stats.textblobAvgScore;
+    const sentimentStatus = getSentimentStatus(avgScore);
+    return matchesText && sentimentStatus === sentimentFilter;
+  });
 
   return (
     <Card>
@@ -96,43 +110,71 @@ const ProductStats = ({ reviews, selectedModel }: ProductStatsProps) => {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          <div className="flex-1">
+            <Input
+              placeholder="Buscar producto..."
+              value={filterText}
+              onChange={(e) => setFilterText(e.target.value)}
+              className="w-full"
+            />
+          </div>
+          
+          <Select 
+            value={sentimentFilter} 
+            onValueChange={(value) => setSentimentFilter(value as SentimentLabel | "all")}
+          >
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectValue placeholder="Filtrar por sentimiento" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los sentimientos</SelectItem>
+              <SelectItem value="Positivo">Positivo</SelectItem>
+              <SelectItem value="Neutral">Neutral</SelectItem>
+              <SelectItem value="Negativo">Negativo</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        
         <div className="space-y-4">
-          {productStats.map((stats) => {
-            const avgScore = selectedModel === "vader" ? stats.vaderAvgScore : stats.textblobAvgScore;
-            const sentimentStatus = getSentimentStatus(avgScore);
-            
-            return (
-              <div 
-                key={stats.product} 
-                className="p-4 border rounded-lg flex flex-col md:flex-row md:items-center gap-4 hover:bg-slate-50 transition-colors"
-              >
-                <div className="flex-1">
-                  <h4 className="font-medium text-gray-900">{stats.product}</h4>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    <Badge variant="outline" className="text-gray-600">
-                      {stats.reviewCount} reseñas
-                    </Badge>
-                    <Badge className={getSentimentColor(avgScore)}>
-                      {sentimentStatus}
-                    </Badge>
+          {filteredProductStats.length === 0 ? (
+            <p className="text-center text-gray-500 py-4">No se encontraron productos con los criterios de búsqueda</p>
+          ) : (
+            filteredProductStats.map((stats) => {
+              const avgScore = selectedModel === "vader" ? stats.vaderAvgScore : stats.textblobAvgScore;
+              const sentimentStatus = getSentimentStatus(avgScore);
+              
+              return (
+                <div 
+                  key={stats.product} 
+                  className="p-4 border rounded-lg flex flex-col md:flex-row md:items-center gap-4 hover:bg-slate-50 transition-colors"
+                >
+                  <div className="flex-1">
+                    <h4 className="font-medium text-gray-900">{stats.product}</h4>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      <Badge variant="outline" className="text-gray-600">
+                        {stats.reviewCount} reseñas
+                      </Badge>
+                      <Badge className={getSentimentColor(sentimentStatus)}>
+                        {sentimentStatus}
+                      </Badge>
+                    </div>
                   </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4 w-full md:w-auto">
-                  <div className="text-center">
-                    <div className="text-sm text-gray-500">Puntaje promedio</div>
-                    <div className="font-semibold">{avgScore.toFixed(3)}</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-sm text-gray-500">Rango</div>
-                    <div className="font-semibold">
-                      {stats.lowestScore.toFixed(2)} / {stats.highestScore.toFixed(2)}
+                  
+                  <div className="flex items-center gap-4">
+                    <div className="text-center">
+                      <div className="text-sm text-gray-500">Sentimiento</div>
+                      <div className="font-semibold">
+                        <Badge className={`${getSentimentColor(sentimentStatus)} mt-1`}>
+                          {sentimentStatus}
+                        </Badge>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </CardContent>
     </Card>
