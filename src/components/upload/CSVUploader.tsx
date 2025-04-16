@@ -46,25 +46,62 @@ const CSVUploader = ({ onDataProcessed, isLoading, setIsLoading }: CSVUploaderPr
     const lines = text.split("\n");
     const headers = lines[0].split(",");
     
-    // Verificamos que el CSV tenga las columnas necesarias
-    const productIndex = headers.findIndex(h => h.toLowerCase().includes("product"));
-    const reviewIndex = headers.findIndex(h => h.toLowerCase().includes("review"));
+    // Verificamos si el archivo contiene columnas específicas de Amazon
+    const reviewContentIndex = headers.findIndex(h => h.toLowerCase().includes("review_content"));
+    const asinIndex = headers.findIndex(h => h.toLowerCase().includes("asin") || h.toLowerCase().includes("product_id"));
+    
+    if (reviewContentIndex !== -1 && asinIndex !== -1) {
+      // Formato específico de Amazon
+      console.log("Detectado formato Amazon:", headers);
+      return lines
+        .slice(1) // Omitimos las cabeceras
+        .filter(line => line.trim() !== "")
+        .map((line, index) => {
+          const values = line.split(",");
+          return {
+            id: `review-${index}`,
+            product: values[asinIndex].trim(),
+            review: values[reviewContentIndex].trim()
+          };
+        });
+    }
+    
+    // Formato genérico (buscamos product/producto y review/reseña)
+    const productIndex = headers.findIndex(h => 
+      h.toLowerCase().includes("product") || 
+      h.toLowerCase().includes("producto") ||
+      h.toLowerCase().includes("asin")
+    );
+    
+    const reviewIndex = headers.findIndex(h => 
+      h.toLowerCase().includes("review") || 
+      h.toLowerCase().includes("reseña") ||
+      h.toLowerCase().includes("comentario") ||
+      h.toLowerCase().includes("text")
+    );
     
     if (productIndex === -1 || reviewIndex === -1) {
-      throw new Error("El CSV debe contener columnas de 'product' y 'review'");
+      throw new Error("El CSV debe contener columnas identificables como 'product/producto' y 'review/reseña'");
     }
+    
+    console.log(`Formato genérico: product=${headers[productIndex]}, review=${headers[reviewIndex]}`);
     
     return lines
       .slice(1) // Omitimos las cabeceras
       .filter(line => line.trim() !== "")
       .map((line, index) => {
         const values = line.split(",");
+        if (values.length <= Math.max(productIndex, reviewIndex)) {
+          console.warn("Línea con formato incorrecto:", line);
+          return null;
+        }
         return {
           id: `review-${index}`,
-          product: values[productIndex].trim(),
-          review: values[reviewIndex].trim()
+          product: values[productIndex]?.trim() || `Producto ${index}`,
+          review: values[reviewIndex]?.trim() || ""
         };
-      });
+      })
+      .filter((item): item is ProductReview => item !== null && item.review !== "");
   };
 
   const handleUpload = async () => {
@@ -102,6 +139,7 @@ const CSVUploader = ({ onDataProcessed, isLoading, setIsLoading }: CSVUploaderPr
       }
       
       toast.info(`Procesando ${reviews.length} reseñas...`);
+      console.log("Reseñas detectadas:", reviews.slice(0, 5));
       
       // Procesamos las reseñas con la API
       const processedReviews = await processCSV(reviews);
@@ -121,7 +159,7 @@ const CSVUploader = ({ onDataProcessed, isLoading, setIsLoading }: CSVUploaderPr
       <h2 className="text-xl font-semibold mb-4">Cargar archivo CSV</h2>
       <p className="text-gray-600 mb-4">
         Sube un archivo CSV con reseñas de productos. El archivo debe contener al menos
-        las columnas "product" y "review".
+        las columnas "product/asin" y "review/review_content".
       </p>
       
       {isAPIConnected === false && (
