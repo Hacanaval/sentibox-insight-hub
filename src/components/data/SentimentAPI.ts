@@ -1,4 +1,3 @@
-
 // Tipos para interactuar con la API
 export type SentimentModel = 'vader' | 'textblob';
 export type SentimentLabel = 'Positivo' | 'Negativo' | 'Neutral';
