@@ -1,10 +1,10 @@
 
-import { ChangeEvent, useState } from "react";
+import { ChangeEvent, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { ProductReview, processCSV } from "../data/SentimentAPI";
-import { Upload } from "lucide-react";
+import { ProductReview, processCSV, checkAPIConnection } from "../data/SentimentAPI";
+import { Upload, AlertTriangle } from "lucide-react";
 
 interface CSVUploaderProps {
   onDataProcessed: (data: ProductReview[]) => void;
@@ -14,6 +14,27 @@ interface CSVUploaderProps {
 
 const CSVUploader = ({ onDataProcessed, isLoading, setIsLoading }: CSVUploaderProps) => {
   const [file, setFile] = useState<File | null>(null);
+  const [isAPIConnected, setIsAPIConnected] = useState<boolean | null>(null);
+
+  // Verificar la conexión a la API al montar el componente
+  useEffect(() => {
+    const verifyConnection = async () => {
+      try {
+        const connected = await checkAPIConnection();
+        setIsAPIConnected(connected);
+        if (!connected) {
+          toast.error("No se pudo conectar con la API de análisis. Verifica que el servidor Flask esté en ejecución.", {
+            duration: 10000,
+          });
+        }
+      } catch (error) {
+        console.error("Error al verificar la conexión:", error);
+        setIsAPIConnected(false);
+      }
+    };
+
+    verifyConnection();
+  }, []);
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -52,6 +73,22 @@ const CSVUploader = ({ onDataProcessed, isLoading, setIsLoading }: CSVUploaderPr
       return;
     }
 
+    // Verificamos la conexión a la API primero
+    try {
+      const connected = await checkAPIConnection();
+      if (!connected) {
+        toast.error("No se pudo conectar con la API de análisis. Verifica que el servidor Flask esté en ejecución.");
+        setIsAPIConnected(false);
+        return;
+      }
+      
+      setIsAPIConnected(true);
+    } catch (error) {
+      toast.error("Error al verificar la conexión con la API");
+      setIsAPIConnected(false);
+      return;
+    }
+
     setIsLoading(true);
     
     try {
@@ -87,6 +124,13 @@ const CSVUploader = ({ onDataProcessed, isLoading, setIsLoading }: CSVUploaderPr
         las columnas "product" y "review".
       </p>
       
+      {isAPIConnected === false && (
+        <div className="bg-amber-50 border border-amber-200 p-3 rounded-md flex items-center gap-2 text-amber-700 mb-4">
+          <AlertTriangle size={20} />
+          <span>No se detecta conexión con la API. Verifica que el servidor Flask esté en ejecución en <code>http://localhost:5000</code></span>
+        </div>
+      )}
+      
       <div className="space-y-4">
         <div className="flex items-center gap-4">
           <Input
@@ -97,7 +141,7 @@ const CSVUploader = ({ onDataProcessed, isLoading, setIsLoading }: CSVUploaderPr
           />
           <Button 
             onClick={handleUpload} 
-            disabled={!file || isLoading}
+            disabled={!file || isLoading || isAPIConnected === false}
             className="gap-2"
           >
             <Upload size={16} />

@@ -1,28 +1,62 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Smile, Meh, Frown } from "lucide-react";
-import { SentimentModel, SentimentResponse, analyzeSentiment, getSentimentColor } from "../data/SentimentAPI";
+import { Smile, Meh, Frown, AlertTriangle } from "lucide-react";
+import { SentimentModel, SentimentResponse, analyzeSentiment, getSentimentColor, checkAPIConnection } from "../data/SentimentAPI";
+import { toast } from "sonner";
 
 const SentimentAnalyzer = () => {
   const [text, setText] = useState("");
   const [model, setModel] = useState<SentimentModel>("vader");
   const [result, setResult] = useState<SentimentResponse | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isAPIConnected, setIsAPIConnected] = useState<boolean | null>(null);
+
+  // Verificar la conexión a la API al montar el componente
+  useEffect(() => {
+    const verifyConnection = async () => {
+      try {
+        const connected = await checkAPIConnection();
+        setIsAPIConnected(connected);
+        if (!connected) {
+          toast.error("No se pudo conectar con la API de análisis. Verifica que el servidor Flask esté en ejecución.", {
+            duration: 10000,
+          });
+        }
+      } catch (error) {
+        console.error("Error al verificar la conexión:", error);
+        setIsAPIConnected(false);
+      }
+    };
+
+    verifyConnection();
+  }, []);
 
   const handleAnalyze = async () => {
     if (!text.trim()) return;
     
     setIsAnalyzing(true);
     try {
+      // Verificamos la conexión antes de intentar analizar
+      const connected = await checkAPIConnection();
+      if (!connected) {
+        toast.error("No se pudo conectar con la API de análisis. Verifica que el servidor Flask esté en ejecución.");
+        setIsAPIConnected(false);
+        setIsAnalyzing(false);
+        return;
+      }
+      
+      setIsAPIConnected(true);
       const response = await analyzeSentiment(text, model);
       setResult(response);
+      toast.success("Análisis de sentimiento completado");
     } catch (error) {
       console.error("Error al analizar el texto:", error);
+      toast.error(`Error al analizar: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     } finally {
       setIsAnalyzing(false);
     }
@@ -53,6 +87,13 @@ const SentimentAnalyzer = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {isAPIConnected === false && (
+            <div className="bg-amber-50 border border-amber-200 p-3 rounded-md flex items-center gap-2 text-amber-700 mb-4">
+              <AlertTriangle size={20} />
+              <span>No se detecta conexión con la API. Verifica que el servidor Flask esté en ejecución en <code>http://localhost:5000</code></span>
+            </div>
+          )}
+          
           <Textarea
             placeholder="Escribe o pega el texto que deseas analizar..."
             value={text}
@@ -81,7 +122,7 @@ const SentimentAnalyzer = () => {
           
           <Button 
             onClick={handleAnalyze}
-            disabled={!text.trim() || isAnalyzing}
+            disabled={!text.trim() || isAnalyzing || isAPIConnected === false}
             className="w-full"
           >
             {isAnalyzing ? "Analizando..." : "Analizar Sentimiento"}
