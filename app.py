@@ -5,12 +5,15 @@ from textblob import TextBlob
 from flask_cors import CORS  # Importamos Flask-CORS
 
 app = Flask(__name__)
-# Habilitamos CORS para todos los orígenes
-CORS(app, resources={r"/*": {"origins": "*"}})
+# Habilitamos CORS para todos los orígenes de forma explícita
+CORS(app, origins=["*"], allow_headers=["Content-Type", "Authorization", "Accept"], 
+     methods=["GET", "POST", "OPTIONS"], supports_credentials=False)
+
 vader_analyzer = SentimentIntensityAnalyzer()
 
 @app.route('/')
 def home():
+    # Aseguramos que se devuelva un objeto JSON para la comprobación de conexión
     return jsonify({"message": "API de Análisis de Sentimiento funcionando 👋"})
 
 @app.route('/sentiment', methods=['POST'])
@@ -44,4 +47,5 @@ def sentiment():
     })
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # Especificamos el host como 0.0.0.0 para permitir conexiones desde cualquier dirección
+    app.run(host='0.0.0.0', debug=True)
